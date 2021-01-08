@@ -1,0 +1,31 @@
+# custom argocd image based on rhel ubi minimal
+FROM shubhamagarwal19/argocd:ubi-minimal
+
+USER root
+
+# install operator-util binary
+COPY ./util.sh /usr/local/bin/argocd-operator-util
+
+# build aws cli
+RUN microdnf update && \
+    microdnf install unzip && \
+    microdnf clean all && \
+    curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    /usr/local/bin/aws --version
+
+# build gcloud cli
+RUN microdnf update && \
+    microdnf install gzip python2 tar && \
+    microdnf clean all && \
+    curl https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-290.0.0-linux-x86_64.tar.gz | tar xzvC /usr/local && \
+    /usr/local/google-cloud-sdk/bin/gcloud version
+
+# TODO: add azure binary
+
+ENV USER_NAME=argocd
+ENV HOME=/home/argocd
+
+USER argocd
+WORKDIR /home/argocd
