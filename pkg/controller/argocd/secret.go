@@ -399,14 +399,18 @@ func (r *ReconcileArgoCD) reconcileClusterPermissionsSecret(cr *argoprojv1a1.Arg
 			"insecure": false,
 		},
 	})
-	secret.Data["config"] = dataBytes
-	secret.Data["name"] = []byte("in-cluster")
-	secret.Data["server"] = []byte("https://kubernetes.default.svc")
 
 	//TODO: get a list of namespaces based on label and append all
 	buf := &bytes.Buffer{}
 	gob.NewEncoder(buf).Encode([]string{cr.Namespace})
-	secret.Data["namespaces"] = buf.Bytes()
+
+	secret.Data = map[string][]byte{
+		"config": dataBytes,
+		"name": []byte("in-cluster"),
+		"server": []byte("https://kubernetes.default.svc"),
+		"namespaces": buf.Bytes(),
+	}
+
 	applyReconcilerHook(cr, secret, "")
 
 	log.Info("Cluster Permission Secret = ", secret)
