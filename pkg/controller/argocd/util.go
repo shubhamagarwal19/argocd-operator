@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"strings"
 	"text/template"
@@ -809,7 +811,7 @@ func annotationsForCluster(cr *argoprojv1a1.ArgoCD) map[string]string {
 }
 
 // watchResources will register Watches for each of the supported Resources.
-func watchResources(c controller.Controller, clusterResourceMapper handler.ToRequestsFunc, tlsSecretMapper handler.ToRequestsFunc) error {
+func watchResources(c controller.Controller, clusterResourceMapper, tlsSecretMapper, namespaceResourceMapper handler.ToRequestsFunc) error {
 	// Watch for changes to primary resource ArgoCD
 	if err := c.Watch(&source.Kind{Type: &argoprojv1a1.ArgoCD{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
@@ -899,6 +901,14 @@ func watchResources(c controller.Controller, clusterResourceMapper handler.ToReq
 		}
 	}
 
+	namespaceHandler := &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: namespaceResourceMapper,
+	}
+
+	if err := c.Watch(&source.Kind{Type: &corev1.Namespace{}}, namespaceHandler, namespaceFilterPredicate()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -959,4 +969,24 @@ func splitList(s string) []string {
 		elems[i] = strings.TrimSpace(elems[i])
 	}
 	return elems
+}
+
+func containsString(arr []string, s string) bool {
+	for _, val := range arr {
+		if strings.TrimSpace(val) == s {
+			return true
+		}
+	}
+	return false
+}
+
+func namespaceFilterPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if _, ok := e.MetaNew.GetLabels()[common.ArgoCDManagedNamespaceLabel]; ok {
+				return true
+			}
+			return false
+		},
+	}
 }
